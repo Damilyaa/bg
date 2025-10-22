@@ -1,0 +1,824 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Stream песни</title>
+    <style>
+        @font-face {
+            font-family: 'Inter';
+            src: url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap');
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            height: 100vh;
+            overflow: hidden;
+            color: white;
+            position: relative;
+            transition: background-color 0.6s ease;
+        }
+
+        .background {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: -1;
+            transition: opacity 1s ease;
+            overflow: hidden;
+        }
+
+        .background-image, .background-video {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            transition: opacity 1s ease;
+        }
+
+        .background-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(135deg, rgba(0,0,0,0.7) 0%, rgba(0,0,0,0.3) 100%);
+            z-index: 1;
+        }
+
+        .background.grain::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-image: url('https://i.pinimg.com/1200x/d0/34/2b/d0342bd94b28704011328766cf6ba5ca.jpg');
+
+    /* ADD THESE */
+    background-repeat: no-repeat;     /* do not tile */
+    background-size: cover;           /* scale to fully cover container */
+    background-position: center center; /* center the image */
+    will-change: transform;           /* hint for smoother rendering (optional) */
+    z-index: 0;
+    pointer-events: none;
+}
+
+        .header {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            z-index: 10;
+        }
+
+        .song-title {
+            font-size: 1.2rem;
+            font-weight: 600;
+            text-shadow: 0 2px 4px rgba(0,0,0,0.3);
+        }
+
+        .song-artist {
+            font-size: 0.9rem;
+            opacity: 0.8;
+            margin-top: 4px;
+        }
+
+        .lyrics-line {
+    text-align: center;
+    opacity: 0.4;
+    font-size: clamp(14px, 3vw, 24px);
+    transform: scale(0.9);
+    height: 60px;
+    margin: 10px 0;
+    transition: all 0.6s cubic-bezier(0.16, 1, 0.3, 1);
+    text-shadow: 0 2px 8px rgba(0,0,0,0.4);
+    will-change: transform, opacity, font-size;
+}
+
+.lyrics-line.active {
+    opacity: 1;
+    font-size: clamp(25px, 4vw, 48px);
+    font-weight: 600;
+    transform: scale(1);
+    white-space: nowrap;
+
+    /* Эффект свечения */
+    color: #ffffff;
+    text-shadow:
+
+        0 0 48px rgba(255, 255, 255, 0.4);
+}
+
+.lyrics-container {
+    position: absolute;
+    top: 45%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    overflow: hidden; 
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+}
+
+.lyrics-track {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    transition: transform 0.5s ease-in-out;
+    will-change: transform;
+}
+
+        .lyrics-line.hidden {
+            opacity: 0;
+            transform: translateY(60px) scale(0.8);
+        }
+
+        @media (max-width: 768px) {
+            .lyrics-line.current {
+                font-size: clamp(24px, 8vw, 48px);
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="background" id="background">
+        <div class="background-overlay"></div>
+    </div>
+    
+    <div class="header">
+        <div class="song-title" id="song-title"></div>
+        <div class="song-artist" id="song-artist"></div>
+    </div>
+    
+    <div class="lyrics-container" id="lyrics-container"></div>
+
+    <script>
+        // Конфигурация приложения
+        const config = {
+            loopLines: false,
+            autoplayEnabled: false,
+            autoplayIntervalMs: 1400,
+            initialSongId: "firework"
+        };
+
+        const songs = [
+            {
+                id: "espresso",
+                title: "Espresso",
+                artist: "Sabrina Carpenter",
+                lines: [
+                    "Now he's thinkin' 'bout me every night, oh",
+        "Is it that sweet? I guess so",
+        "Say you can't sleep, baby, I know",
+        "That's that me espresso",
+        "Move it up, down, left, right, oh",
+        "Switch it up like Nintendo",
+        "Say you can't sleep, baby, I know",
+        "That's that me espresso",
+        "I can't relate to desperation",
+        "My give-a-fucks are on vacation",
+        "And I got this one boy, and he won't stop callin'",
+        "When they act this way, I know I got 'em",
+        "Too bad your ex don't do it for ya",
+        "Walked in and dream-came-trued it for ya",
+        "Soft skin and I perfumed it for ya",
+        "(Yes) I know, I Mountain Dew it for ya",
+        "(Yes) that morning coffee, brewed it for ya",
+        "(Yes) one touch and I brand-newed it for ya (oh)",
+        "Now he's thinkin' 'bout me every night, oh",
+        "Is it that sweet? I guess so",
+        "Say you can't sleep, baby, I know",
+        "That's that me espresso",
+        "Move it up, down, left, right, oh",
+        "Switch it up like Nintendo",
+        "Say you can't sleep, baby, I know",
+        "That's that me espresso",
+        "I'm working late, 'cause I'm a singer",
+        "Oh, he looks so cute wrapped 'round my finger",
+        "My twisted humor makes him laugh so often",
+        "My honey bee, come and get this pollen",
+        "Too bad your ex don't do it for ya",
+        "Walked in and dream-came-trued it for ya",
+        "Soft skin and I perfumed it for ya",
+        "I know, I Mountain Dew it for ya",
+        "That morning coffee, brewed it for ya",
+        "One touch and I brand-newed it for ya (stupid)",
+        "Now he's thinkin' 'bout me every night, oh",
+        "Is it that sweet? I guess so",
+        "Say you can't sleep, baby, I know",
+        "That's that me espresso",
+        "Move it up, down, left, right, oh",
+        "Switch it up like Nintendo",
+        "Say you can't sleep, baby, I know",
+        "That's that me espresso",
+        "Thinkin' 'bout me every night, oh",
+        "Is it that sweet? I guess so (yes)",
+        "Say you can't sleep, baby, I know",
+        "That's that me espresso (yes)",
+        "Move it up, down, left, right, oh",
+        "Switch it up like Nintendo (yes)",
+        "Say you can't sleep, baby, I know",
+        "That's that me espresso",
+        "Is it that sweet? I guess so, uh",
+        "That's that me espresso"
+    ],
+                theme: {
+                    primary: "#2F2F2F",
+                    secondary: "#A67B5B",
+                    backgroundType: "gif",
+                    backgroundMedia: "https://images.hdqwalls.com/download/coffee-beans-4k-3840x2400.jpg",
+                    grain: true
+                }
+            },
+            {
+                id: "firework",
+                title: "Firework",
+                artist: "Katy Perry",
+                lines: [
+                    "Do you ever feel like a plastic bag",
+"Drifting through the wind, wanting to start again?",
+"Do you ever feel, feel so paper thin",
+"Like a house of cards, one blow from cavin' in?",
+"Do you ever feel already buried deep?",
+"Six feet under screams, but no one seems to hear a thing",
+"Do you know that there's still a chance for you?",
+"Cause there's a spark in you",
+"You just gotta ignite the light",
+"And let it shine",
+"Just own the night",
+"Like the Fourth of July",
+"Cause baby, you're a firework",
+"Come on, show 'em what you're worth",
+"Make 'em go, 'Oh, oh, oh' ",
+"As you shoot across the sky",
+"Baby, you're a firework",
+"Come on, let your colors burst",
+"Make 'em go, 'Oh, oh, oh' ",
+"You're gonna leave 'em all in awe, awe, awe",
+"You don't have to feel like a waste of space",
+"You're original, cannot be replaced",
+"If you only knew what the future holds",
+"After a hurricane comes a rainbow",
+"Maybe a reason why all the doors are closed",
+"So you could open one that leads you to the perfect road",
+"Like a lightning bolt, your heart will glow",
+"And when it's time, you'll know",
+"You just gotta ignite the light",
+"And let it shine",
+"Just own the night",
+"Like the Fourth of July",
+"Cause baby, you're a firework",
+"Come on, show 'em what you're worth",
+"Make 'em go, 'Oh, oh, oh' ",
+"You're gonna leave 'em all in awe, awe, awe",
+"Baby, you're a firework",
+"Come on, let your colors burst",
+"Make 'em go, 'Oh, oh, oh' ",
+"You're gonna leave 'em all in awe, awe, awe",
+"Boom, boom, boom",
+"Even brighter than the moon, moon, moon",
+"It's always been inside of you, you, you",
+"And now it's time to let it through",
+"Cause baby, you're a firework",
+"Come on, show 'em what you're worth",
+"Make 'em go, 'Oh, oh, oh' ",
+"As you shoot across the sky",
+"Baby, you're a firework",
+"Come on, let your colors burst",
+"Make 'em go, 'Oh, oh, oh' ",
+"You're gonna leave 'em all in awe, awe, awe",
+"Boom, boom, boom",
+"Even brighter than the moon, moon, moon",
+"Boom, boom, boom",
+"Even brighter than the moon, moon, moon"                ],
+                theme: {
+                    primary: "#2F2F2F",
+                    secondary: "#A67B5B",
+                    backgroundType: "gif",
+                    backgroundMedia: "https://images.hdqwalls.com/download/coffee-beans-4k-3840x2400.jpg",
+                    grain: true
+                }
+            },
+            {
+                id: "love_me_again",
+                title: "Love Me Again",
+                artist: "John Newman",
+                lines: [
+                    "Know I've done wrong, left your heart torn",
+        "Is that what devils do?",
+        "Took you so low, where only fools go",
+        "I shook the angel in you",
+        "Now I'm rising from the ground",
+        "Rising up to you",
+        "Filled with all the strength I found",
+        "There's nothing I can't do",
+        "I need to know now, know now",
+        "Can you love me again?",
+        "I need to know now, know now",
+        "Can you love me again?",
+        "I need to know now, know now",
+        "Can you love me again?",
+        "I need to know now, know now",
+        "Can you love me again?",
+        "Can you love me again?",
+        "It's unforgivable",
+        "I stole and burnt your soul",
+        "Is that what demons do?",
+        "They rule the worst of me",
+        "Destroy everything",
+        "They bring down angels like you",
+        "Now I'm rising from the ground",
+        "Rising up to you",
+        "Filled with all the strength I found",
+        "There's nothing I can't do",
+        "I need to know now, know now",
+        "Can you love me again?",
+        "I need to know now, know now",
+        "Can you love me again?",
+        "Can you love me again?",
+        "Oh, I told you once again",
+        "I can't do this again, do this again, oh",
+        "I told you once again",
+        "I can't do this again, do this again, oh no",
+        "I need to know now, know now",
+        "Can you love me again?",
+        "I need to know now, know now",
+        "Can you love me again?",
+        "I need to know now, know now",
+        "Can you love me again? (Oh, oh)",
+        "Can you love me again?",
+        "Can you love me again? (Oh, no, no)",
+        "Can you love me again?"
+    ],
+                theme: {
+                    primary: "#2F2F2F",
+                    secondary: "#A67B5B",
+                    backgroundType: "gif",
+                    backgroundMedia: "https://images.hdqwalls.com/download/coffee-beans-4k-3840x2400.jpg",
+                    grain: true
+                }
+            },
+            {
+                id: "sheker",
+                title: "Sheker",
+                artist: "Darkhan Juzz",
+                lines: [
+        "Qaı qaltamda joǵalyp ketsede qurysyn baǵanaǵy shań-tozań.",
+        "Men bárіne rızamyn, bárі óz babymen",
+        "tfaı-tfaı-tfaı, taǵy ne deısіń endі.",
+        "Júzeıіn samǵaıyn, qóńіl-kúıіme osy ólenіm laıyq, tolǵanaıyn.",
+        "Qosyl tolqynyma, karap turma. Má menіń otynym senіń otyńa!",
+        "Ýý-ee, sheker-sheker,",
+        "Bіr jaǵalaýǵa myń shaǵala.",
+        "Quı sharap, quı sharap.",
+        "Isheıіk-іsheıіk-іsheıіk-іsheıіk-іsheıіk ıá.",
+        "Ýý-ee, sheker-sheker,",
+        "Bіr jaǵalaýǵa myń shaǵala.",
+        "Quı sharap, quı sharap.",
+        "Isheıіk-іsheıіk-іsheıіk-іsheıіk-іsheıіk ıá.",
+        "Berі kel, qazir men senі úıretem.",
+        "Úsh dóńgelek, baıaǵy baldyrǵan.",
+        "Ýaqyt tyǵyz, bіraq saǵan oryn qaldyrǵanmyn.",
+        "Ne jasyraıyn, bererіm qolymda", 
+        "Má bópetaıym. Al, abaılap al", 
+        "Adastyraıyn. Men de daıynmyn. Keremet mereke!",
+        "Ýý-ee, sheker-sheker,",
+        "Bіr jaǵalaýǵa myń shaǵala.",
+        "Quı sharap, quı sharap.",
+        "Isheıіk-іsheıіk-іsheıіk-іsheıіk-іsheıіk ıá.",
+        "Ýý-ee, sheker-sheker,",
+        "Bіr jaǵalaýǵa myń shaǵala.",
+        "Quı sharap, quı sharap.",
+        "Isheıіk-іsheıіk-іsheıіk-іsheıіk-іsheıіk ıá.",
+        "Sheker - sheker, myńshaǵala, quı sharap.",
+        "Júzdegen mysyq mıaýyldaıdy maıysyp,",
+        "Bіraq Darekentі sabyrly, Darekentі qaısar.",
+        "Eshqaısysyn tanymaım, sondyqtan jolamaım.",
+        "Men de pende, úıtkenі sendeı deńgeı, bárі mergen",
+        "Kerbez terbel, jіbek ıyǵyńnan tógіlіp, tіgіsіnen sógіlіp.",
+        "Kózіldіrіktі murnyma іldіrіp,",
+        "Teńselem bіldіrtpeı júrgenіmdі ne búldіrіp.",
+        "Ýý-ee, sheker-sheker,",
+        "Bіr jaǵalaýǵa myń shaǵala.",
+        "Quı sharap, quı sharap.",
+        "Isheıіk-іsheıіk-іsheıіk-іsheıіk-іsheıіk ıá.",
+        "Ýý-ee, sheker-sheker,",
+        "Bіr jaǵalaýǵa myń shaǵala.",
+        "Quı sharap, quı sharap.",
+        "Isheıіk-іsheıіk-іsheıіk-іsheıіk-іsheıіk ıá.",
+        "Qaı qaltamda joǵalyp ketsede qurysyn baǵanaǵy shań-tozań.",
+        "Men bárіne rızamyn, bárі óz babymen",
+        "tfaı-tfaı-tfaı, taǵy ne deısіń endі.",
+        "Júzeıіn samǵaıyn, qóńіl-kúıіme osy ólenіm laıyq, tolǵanaıyn.",
+        "Qosyl tolqynyma, karap turma. Má menіń otynym senіń otyńa!",
+        "Ýý-ee, sheker-sheker,",
+        "Bіr jaǵalaýǵa myń shaǵala.",
+        "Quı sharap, quı sharap.",
+        "Isheıіk-іsheıіk-іsheıіk-іsheıіk-іsheıіk ıá.",
+        "Ýý-ee, sheker-sheker,",
+        "Bіr jaǵalaýǵa myń shaǵala.",
+        "Quı sharap, quı sharap.",
+        "Isheıіk-іsheıіk-іsheıіk-іsheıіk-іsheıіk ıá."
+    ],
+               theme: {
+                    primary: "#2F2F2F",
+                    secondary: "#A67B5B",
+                    backgroundType: "gif",
+                    backgroundMedia: "https://images.hdqwalls.com/download/coffee-beans-4k-3840x2400.jpg",
+                    grain: true
+                }
+            },
+            
+            
+            {
+                id: "kometa",
+                title: "Комета",
+                artist: "JONY",
+                lines: [
+                     "Все без тебя не так",
+        "Лечу к тебе я, словно комета",
+        "И даже под дулом пистолета",
+        "Я найду тебя я, я найду тебя я",
+        "Ведь без тебя дико мне так",
+        "Ты просто подойди ко мне да",
+        "Я знаю, будет наше это лето",
+        "Ведь ты моя да, ведь ты моя да",
+        "Все, без тебя не так",
+        "Лечу к тебе я словно комета",
+        "И даже под дулом пистолета",
+        "Я найду тебя я, я найду тебя я",
+        "Буря мглою небо кроет",
+        "Вихри снежные крутя",
+        "То как зверь она завоет",
+        "То заплачет, как дитя",
+        "И если ты найдешь во мне Инь Янь",
+        "Останови это мучение",
+        "В тот миг, когда я потерял тебя",
+        "Там вдали падала луна",
+        "Все без тебя не так",
+        "Лечу к тебе я словно комета",
+        "И даже под дулом пистолета",
+        "Я найду тебя я, я найду тебя я",
+        "Ведь без тебя дико мне так",
+        "Ты просто подойди ко мне да",
+        "Я знаю, будет наше это лето",
+        "Ведь ты моя да, ведь ты моя да",
+        "Все, без тебя не так",
+        "Лечу к тебе я словно комета",
+        "И даже под дулом пистолета",
+        "Я найду тебя я, я найду тебя я"
+                ],
+                theme: {
+                    primary: "#4B0082",
+                    secondary: "#0F0B1A",
+                    backgroundType: "gif",
+                    backgroundMedia: "https://images.hdqwalls.com/download/galaxy-4k-3840x2400.jpg",
+                    grain: true
+                }
+            },
+            {
+                id: "wicked_game",
+                title: "Wicked Game",
+                artist: "Chris Isaak",
+                lines: [
+                  "The world was on fire, and no one could save me but you",
+        "It's strange what desire will make foolish people do",
+        "I never dreamed that I'd meet somebody like you",
+        "And I never dreamed that I'd lose somebody like you",
+        "No, I don't wanna fall in love ",
+        "No, I don't wanna fall in love ",
+        "With you, with you",
+        "(This world is only gonna break your heart)",
+        "What a wicked game to play to make me feel this way",
+        "What a wicked thing to do to let me dream of you",
+        "What a wicked thing to say, you never felt this way",
+        "What a wicked thing to do to make me dream of you",
+        "And I don't wanna fall in love",
+        "No, I don't wanna fall in love",
+        "With you",
+        "The world was on fire, and no one could save me but you",
+        "It's strange what desire will make foolish people do",
+        "I never dreamed that I'd love somebody like you",
+        "And I never dreamed that I'd lose somebody like you",
+        "No, I don't wanna fall in love ",
+        "No, I don't wanna fall in love ",
+        "With you, with you (this world is only gonna break your heart)",
+        "(This world is only gonna break your heart) no, I",
+        "(This world is only gonna break your heart)",
+        "nobody loves no one"
+                ],
+                theme: {
+                    primary: "#2F2F2F",
+                    secondary: "#A67B5B",
+                    backgroundType: "gif",
+                    backgroundMedia: "https://images.hdqwalls.com/download/coffee-beans-4k-3840x2400.jpg",
+                    grain: true
+                }
+            }
+        ];
+
+        // Состояние приложения
+        let state = {
+            currentSongIndex: songs.findIndex(song => song.id === config.initialSongId),
+            currentLineIndex: 0,
+            isHelpVisible: false,
+            isAutoplay: false,
+            autoplayInterval: null,
+            keyHold: {
+                up: false,
+                down: false,
+                interval: null,
+                speed: 200,
+                minSpeed: 80,
+                acceleration: 20
+            }
+        };
+
+        // DOM элементы
+        const elements = {
+            background: document.getElementById('background'),
+            lyricsContainer: document.getElementById('lyrics-container'),
+            songTitle: document.getElementById('song-title'),
+            songArtist: document.getElementById('song-artist'),
+            helpOverlay: document.getElementById('help-overlay'),
+        };
+
+        // Инициализация приложения
+        function init() {
+            if (state.currentSongIndex === -1) state.currentSongIndex = 0;
+            
+            renderSong();
+            renderLines();
+            setupEventListeners();
+        }
+
+        // Настройка обработчиков событий
+        function setupEventListeners() {
+            // Клавиатура
+            window.addEventListener('keydown', handleKeyDown);
+            window.addEventListener('keyup', handleKeyUp);
+            
+            // Полноэкранный режим по клику
+            document.addEventListener('click', () => {
+                if (!state.isHelpVisible) {
+                    document.documentElement.requestFullscreen?.().catch(err => {
+                        console.log('Fullscreen error:', err);
+                    });
+                }
+            });
+        }
+
+        // Обработка нажатия клавиш
+        function handleKeyDown(e) {
+            
+            // Навигация по строкам
+            if (e.key === 'ArrowDown') {
+                e.preventDefault();
+                nextLine();
+                startKeyHold('down');
+            } else if (e.key === 'ArrowUp') {
+                e.preventDefault();
+                prevLine();
+                startKeyHold('up');
+            }
+            
+            // Навигация по песням
+            if (e.shiftKey) {
+                if (e.key === 'ArrowRight') {
+                    e.preventDefault();
+                    nextSong();
+                } else if (e.key === 'ArrowLeft') {
+                    e.preventDefault();
+                    prevSong();
+                }
+            }
+        }
+
+        // Обработка отпускания клавиш
+        function handleKeyUp(e) {
+            if (e.key === 'ArrowDown') {
+                stopKeyHold();
+            } else if (e.key === 'ArrowUp') {
+                stopKeyHold();
+            }
+        }
+
+        // Начало удержания клавиши
+        function startKeyHold(direction) {
+            if (state.keyHold.interval) return;
+            
+            state.keyHold[direction] = true;
+            state.keyHold.speed = 200;
+            
+            state.keyHold.interval = setInterval(() => {
+                if (direction === 'down') {
+                    nextLine();
+                } else {
+                    prevLine();
+                }
+                
+                // Ускорение при удержании
+                state.keyHold.speed = Math.max(
+                    state.keyHold.minSpeed, 
+                    state.keyHold.speed - state.keyHold.acceleration
+                );
+                
+                // Обновление интервала
+                clearInterval(state.keyHold.interval);
+                state.keyHold.interval = setInterval(() => {
+                    if (direction === 'down') {
+                        nextLine();
+                    } else {
+                        prevLine();
+                    }
+                }, state.keyHold.speed);
+            }, state.keyHold.speed);
+        }
+
+        // Остановка удержания клавиши
+        function stopKeyHold() {
+            clearInterval(state.keyHold.interval);
+            state.keyHold.interval = null;
+            state.keyHold.up = false;
+            state.keyHold.down = false;
+        }
+
+        // Следующая песня
+        function nextSong() {
+            state.currentSongIndex = (state.currentSongIndex + 1) % songs.length;
+            state.currentLineIndex = 0;
+            changeSong();
+        }
+
+        // Предыдущая песня
+        function prevSong() {
+            state.currentSongIndex = (state.currentSongIndex - 1 + songs.length) % songs.length;
+            state.currentLineIndex = 0;
+            changeSong();
+        }
+
+        // Смена песни
+        function changeSong() {
+            renderSong();
+            renderLines();
+        }
+
+        // Отрисовка песни (фона и заголовка)
+        function renderSong() {
+            const song = songs[state.currentSongIndex];
+            
+            // Установка заголовка
+            elements.songTitle.textContent = song.title;
+            elements.songArtist.textContent = song.artist;
+            
+            // Установка фона
+            const theme = song.theme;
+            
+            // Очищаем предыдущие медиа
+            const oldMedia = elements.background.querySelector('.background-image, .background-video');
+            if (oldMedia) oldMedia.remove();
+            
+            // Создаем новое медиа
+            if (theme.backgroundType === 'video' && theme.backgroundMedia) {
+                const video = document.createElement('video');
+                video.className = 'background-video';
+                video.src = theme.backgroundMedia;
+                video.autoplay = true;
+                video.loop = true;
+                video.muted = true;
+                video.playsInline = true;
+                elements.background.insertBefore(video, elements.background.firstChild);
+            } 
+            else if (theme.backgroundType === 'gif' && theme.backgroundMedia) {
+                const img = document.createElement('img');
+                img.className = 'background-image';
+                img.src = theme.backgroundMedia;
+                elements.background.insertBefore(img, elements.background.firstChild);
+            }
+            else {
+                // Градиентный фон
+                const gradient = `linear-gradient(135deg, ${theme.secondary} 0%, ${theme.primary} 100%)`;
+                elements.background.style.background = gradient;
+                elements.background.style.backgroundColor = theme.primary;
+            }
+            
+            // Зерно
+            if (theme.grain) {
+                elements.background.classList.add('grain');
+            } else {
+                elements.background.classList.remove('grain');
+            }
+            
+            // Цвет текста (для лучшей читаемости)
+            const textColor = getContrastColor(theme.primary);
+            document.body.style.color = textColor;
+        }
+
+        // Отрисовка строк
+        function renderLines() {
+            const song = songs[state.currentSongIndex];
+            const lines = song.lines;
+            
+            // Создаем обертку для трека, если её нет
+            if (!elements.lyricsTrack) {
+                elements.lyricsTrack = document.createElement('div');
+                elements.lyricsTrack.className = 'lyrics-track';
+                elements.lyricsContainer.innerHTML = '';
+                elements.lyricsContainer.appendChild(elements.lyricsTrack);
+            }
+            
+            // Очищаем трек
+            elements.lyricsTrack.innerHTML = '';
+            
+            // Добавляем все строки
+            lines.forEach((line, idx) => {
+                const lineEl = document.createElement('div');
+                lineEl.className = 'lyrics-line';
+                if (idx === state.currentLineIndex) lineEl.classList.add('active');
+                lineEl.textContent = line;
+                elements.lyricsTrack.appendChild(lineEl);
+            });
+            
+            updateTrackPosition();
+        }
+
+        function updateTrackPosition() {
+            if (!elements.lyricsTrack) return;
+            
+            const activeLine = elements.lyricsTrack.querySelector('.lyrics-line.active');
+            if (!activeLine) return;
+            
+            const lineHeight = activeLine.offsetHeight + 20;
+            const wrapperHeight = elements.lyricsContainer.offsetHeight;
+            const centerOffset = wrapperHeight / 2 - lineHeight / 2;
+            const activeIndex = state.currentLineIndex;
+            const offset = activeIndex * lineHeight;
+            
+            elements.lyricsTrack.style.transform = `translateY(${centerOffset - offset}px)`;
+        }
+
+        function nextLine() {
+            const currentSong = songs[state.currentSongIndex];
+            if (state.currentLineIndex < currentSong.lines.length - 1) {
+                state.currentLineIndex++;
+                updateLines();
+            } else if (config.loopLines) {
+                state.currentLineIndex = 0;
+                updateLines();
+            }
+        }
+
+        function prevLine() {
+            if (state.currentLineIndex > 0) {
+                state.currentLineIndex--;
+                updateLines();
+            } else if (config.loopLines) {
+                const currentSong = songs[state.currentSongIndex];
+                state.currentLineIndex = currentSong.lines.length - 1;
+                updateLines();
+            }
+        }
+
+        function updateLines() {
+            const lines = elements.lyricsTrack.querySelectorAll('.lyrics-line');
+            lines.forEach((line, idx) => {
+                line.classList.remove('active');
+                if (idx === state.currentLineIndex) line.classList.add('active');
+            });
+            updateTrackPosition();
+        }
+
+        // Создание элемента строки
+        function createLineElement(text, type) {
+            const lineEl = document.createElement('div');
+            lineEl.className = `lyrics-line ${type}`;
+            lineEl.textContent = text;
+            return lineEl;
+        }
+
+        // Получение контрастного цвета
+        function getContrastColor(hexColor) {
+            // Если цвет очень светлый, возвращаем чёрный, иначе белый
+            const r = parseInt(hexColor.substr(1, 2), 16);
+            const g = parseInt(hexColor.substr(3, 2), 16);
+            const b = parseInt(hexColor.substr(5, 2), 16);
+            const brightness = (r * 299 + g * 587 + b * 114) / 1000;
+            return brightness > 128 ? '#000000' : '#FFFFFF';
+        }
+
+        // Запуск приложения
+        init();
+    </script>
+</body>
+</html>
