@@ -782,7 +782,7 @@
         // Обработка нажатия клавиш
 function handleKeyDown(e) {
     // Навигация по строкам
-    if (e.key === 'ArrowDown') {
+    if (e.key === 'ArrowLeft') {
         e.preventDefault();
         nextLine();
         startKeyHold('down');
@@ -796,9 +796,6 @@ function handleKeyDown(e) {
     if (e.key === 'ArrowRight') {
         e.preventDefault();
         nextSong();
-    } else if (e.key === 'ArrowLeft') {
-        e.preventDefault();
-        prevSong();
     }
 }
 
