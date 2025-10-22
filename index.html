@@ -779,13 +779,12 @@
         }
 
         // Обработка нажатия клавиш
-        // Обработка нажатия клавиш
 function handleKeyDown(e) {
     // Навигация по строкам
     if (e.key === 'ArrowLeft') {
         e.preventDefault();
         nextLine();
-        startKeyHold('down');
+        startKeyHold('left');
     } else if (e.key === 'ArrowUp') {
         e.preventDefault();
         prevLine();
@@ -796,17 +795,18 @@ function handleKeyDown(e) {
     if (e.key === 'ArrowRight') {
         e.preventDefault();
         nextSong();
+    } else if (e.key === 'ArrowDown') {
+        e.preventDefault();
+        prevSong();
     }
 }
 
-        // Обработка отпускания клавиш
-        function handleKeyUp(e) {
-            if (e.key === 'ArrowDown') {
-                stopKeyHold();
-            } else if (e.key === 'ArrowUp') {
-                stopKeyHold();
-            }
-        }
+// Обработка отпускания клавиш
+function handleKeyUp(e) {
+    if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') {
+        stopKeyHold();
+    }
+}
 
         // Начало удержания клавиши
         function startKeyHold(direction) {
